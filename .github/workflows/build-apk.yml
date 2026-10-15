@@ -24,12 +24,14 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Install dependencies & Build APK
+      - name: Prepare web assets and Build APK
         run: |
           npm install
-          npx @capacitor/cli init --web-dir www app app --force || true
+          mkdir -p www
+          find . -maxdepth 1 ! -name '.' ! -name 'android' ! -name '.github' ! -name 'www' -exec cp -r {} www/ \;
+          
           npx cap add android || true
-          npx cap sync android || true
+          npx cap sync android
           cd android
           chmod +x gradlew
           ./gradlew assembleDebug
@@ -39,4 +41,3 @@ jobs:
         with:
           name: AdsAnalytics-APK
           path: android/app/build/outputs/apk/debug/app-debug.apk
-          
