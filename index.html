@@ -1,0 +1,741 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0B5C6E" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0C1416" media="(prefers-color-scheme: dark)">
+<meta name="description" content="محاكي يحسب نقطة التعادل والربح المتوقع لحملتك الإعلانية في ثلاثة سيناريوهات.">
+<style>:root{color-scheme:light}body{margin:0}[hidden]{display:none!important}img{max-width:100%}</style>
+<title>AdsAnalytics &amp; Profit Simulator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@700;800&family=IBM+Plex+Sans+Arabic:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* Concept: دفتر حسابات الحملة. شريط نتيجة ثابت في الأعلى يتحدث مباشرة أثناء تعديل المدخلات،
+   عمود واحد على الهاتف وعمودان على الشاشات الكبيرة. */
+:root {
+  direction: rtl;
+  --bg: #F1F4F3;
+  --surface: #FFFFFF;
+  --surface-2: #E8EEEC;
+  --ink: #0F1F1C;
+  --muted: #546763;
+  --line: #D3DCD9;
+  --accent: #0B5C6E;
+  --on-accent: #FFFFFF;
+  --good: #117A3C;
+  --good-bg: #E0F2E7;
+  --bad: #B8221E;
+  --bad-bg: #FBE4E2;
+  --warn: #8F5500;
+  --warn-bg: #FAEDD2;
+  --info-bg: #DCEEF2;
+  --font-display: 'Cairo', 'Segoe UI', Tahoma, system-ui, sans-serif;
+  --font-body: 'IBM Plex Sans Arabic', 'Segoe UI', Tahoma, system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0C1416; --surface: #142022; --surface-2: #1C2D30; --ink: #E4EEEC; --muted: #8FA4A0;
+    --line: #27393C; --accent: #58BBD0; --on-accent: #08272E; --good: #56C784; --good-bg: #173424;
+    --bad: #F27B74; --bad-bg: #3A1C1B; --warn: #E2A640; --warn-bg: #3A2D12; --info-bg: #15333A;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0C1416; --surface: #142022; --surface-2: #1C2D30; --ink: #E4EEEC; --muted: #8FA4A0;
+  --line: #27393C; --accent: #58BBD0; --on-accent: #08272E; --good: #56C784; --good-bg: #173424;
+  --bad: #F27B74; --bad-bg: #3A1C1B; --warn: #E2A640; --warn-bg: #3A2D12; --info-bg: #15333A;
+  color-scheme: dark;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.65;
+}
+h1, h2, h3 { font-family: var(--font-display); margin: 0; text-wrap: balance; line-height: 1.3; }
+p { margin: 0; }
+button { font-family: inherit; }
+.num { font-variant-numeric: tabular-nums; unicode-bidi: isolate; direction: ltr; display: inline-block; }
+.gut { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.in { max-width: 1120px; margin-inline: auto; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* ===== شريط النتيجة الثابت ===== */
+.bar {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 10;
+  background: var(--surface); border-bottom: 1px solid var(--line);
+}
+.bar .gut { padding-block: 8px; }
+.bar-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 48px; }
+.bar-main { display: flex; align-items: baseline; gap: 10px; min-width: 0; flex-wrap: wrap; }
+.bar-label { font-size: 12.5px; color: var(--muted); font-weight: 600; }
+.bar-profit { font-family: var(--font-display); font-weight: 800; font-size: 24px; line-height: 1.2; }
+.bar-side { font-size: 12.5px; color: var(--muted); text-align: end; }
+.bar-side b { color: var(--ink); font-weight: 600; }
+.pill { display: inline-block; padding: 2px 10px; border-radius: 99px; font-size: 12.5px; font-weight: 700; }
+.pill.good { background: var(--good-bg); color: var(--good); }
+.pill.bad { background: var(--bad-bg); color: var(--bad); }
+.pill.warn { background: var(--warn-bg); color: var(--warn); }
+.t-good { color: var(--good); }
+.t-bad { color: var(--bad); }
+
+/* ===== الرأس ===== */
+.head .gut { padding-block: 22px 6px; }
+.head h1 { font-size: 26px; font-weight: 800; }
+.head p { color: var(--muted); margin-top: 4px; max-width: 60ch; }
+.head .sample { margin-top: 10px; font-size: 13px; color: var(--muted); }
+
+/* ===== التخطيط ===== */
+.layout { display: grid; gap: 20px; padding-block: 14px 28px; }
+.layout > * { min-width: 0; }
+@media (min-width: 920px) {
+  .layout { grid-template-columns: minmax(300px, 370px) minmax(0, 1fr); align-items: start; gap: 28px; }
+  .inputs { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 76px); }
+}
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px; }
+.stack { display: grid; gap: 22px; }
+.sec h2 { font-size: 18px; font-weight: 800; margin-bottom: 10px; }
+
+/* ===== النموذج ===== */
+fieldset { border: 0; margin: 0; padding: 0; min-width: 0; display: grid; gap: 14px; }
+fieldset + fieldset { margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--line); }
+legend { font-family: var(--font-display); font-weight: 800; font-size: 16px; padding: 0; margin-bottom: 12px; }
+.field { display: grid; gap: 4px; }
+.field > label, .lbl { font-weight: 600; font-size: 13.5px; }
+.ctl { display: flex; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); overflow: hidden; }
+.ctl:focus-within { outline: 2px solid var(--accent); outline-offset: 1px; }
+.ctl input {
+  flex: 1; min-width: 0; height: 44px; border: 0; background: transparent; color: var(--ink);
+  font: inherit; font-size: 16px; padding: 0 12px; outline: none; font-variant-numeric: tabular-nums;
+}
+.ctl .u {
+  display: flex; align-items: center; padding: 0 12px; background: var(--surface-2); color: var(--muted);
+  font-size: 13px; font-weight: 600; border-inline-start: 1px solid var(--line);
+}
+.field.bad .ctl { border-color: var(--bad); }
+.err { color: var(--bad); font-size: 12.5px; font-weight: 600; }
+.err:empty { display: none; }
+.hint { color: var(--muted); font-size: 12.5px; }
+.seg { display: grid; grid-template-columns: 1fr 1fr; gap: 3px; padding: 3px; background: var(--surface-2); border-radius: 9px; }
+.seg button { border: 0; background: transparent; color: var(--muted); font-weight: 700; font-size: 14px; padding: 9px 6px; border-radius: 7px; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--surface); color: var(--accent); box-shadow: 0 1px 2px rgba(0,0,0,.18); }
+.actions { display: grid; gap: 8px; margin-top: 20px; }
+.btn { border: 1px solid var(--line); background: transparent; color: var(--ink); font-weight: 700; font-size: 14px; padding: 11px 14px; border-radius: 8px; cursor: pointer; min-height: 44px; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.btn:hover { filter: brightness(1.06); }
+
+/* ===== المؤشرات ===== */
+.kpis { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+@media (min-width: 720px) { .kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.kpi { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px; min-width: 0; }
+.kpi .k { font-size: 12.5px; color: var(--muted); font-weight: 600; }
+.kpi .v { font-family: var(--font-display); font-weight: 800; font-size: 21px; line-height: 1.35; }
+.kpi .s { font-size: 12.5px; color: var(--muted); }
+.kpi.good .v { color: var(--good); }
+.kpi.bad .v { color: var(--bad); }
+
+.be { background: var(--info-bg); border-radius: 10px; padding: 14px; margin-top: 10px; }
+.be h3 { font-size: 15px; font-weight: 800; margin-bottom: 8px; }
+.be dl { margin: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+@media (min-width: 720px) { .be dl { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.be dt { font-size: 12.5px; color: var(--muted); font-weight: 600; }
+.be dd { margin: 0; font-family: var(--font-display); font-weight: 800; font-size: 18px; }
+.be p { margin-top: 10px; font-size: 12.5px; color: var(--muted); }
+
+/* ===== الجدول ===== */
+.scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th, td { padding: 9px 8px; text-align: center; border-bottom: 1px solid var(--line); }
+tbody tr:last-child > * { border-bottom: 0; }
+th:first-child, td:first-child { text-align: start; padding-inline-start: 12px; font-weight: 600; }
+thead th { background: var(--surface-2); vertical-align: bottom; }
+thead th small { display: block; font-weight: 400; color: var(--muted); font-size: 11.5px; }
+tr.profit > * { background: var(--surface-2); font-weight: 700; }
+
+/* ===== الرسوم ===== */
+.charts { display: grid; gap: 14px; }
+@media (min-width: 720px) { .charts { grid-template-columns: repeat(2, minmax(0, 1fr)); } .charts .wide { grid-column: 1 / -1; } }
+.chart h3 { font-size: 14.5px; font-weight: 800; margin-bottom: 8px; }
+.chart .plot { width: 100%; }
+.chart svg { display: block; width: 100%; height: auto; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: 8px; font-size: 12.5px; color: var(--muted); }
+.legend .key { display: inline-flex; align-items: center; gap: 6px; }
+.legend i { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+.legend i.dash { height: 0; border-top: 2px dashed var(--ink); border-radius: 0; width: 18px; }
+
+/* ===== التوصيات ===== */
+.reco { display: grid; gap: 10px; }
+.rc { border-radius: 10px; padding: 12px 14px; background: var(--surface); border: 1px solid var(--line); }
+.rc .top { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+.rc .top b { font-weight: 700; }
+.rc p { font-size: 14px; color: var(--ink); }
+.rc.danger { background: var(--bad-bg); border-color: var(--bad); }
+.rc.warning { background: var(--warn-bg); border-color: var(--warn); }
+.rc.success { background: var(--good-bg); border-color: var(--good); }
+.rc.info { background: var(--info-bg); border-color: var(--accent); }
+.tag { font-size: 11.5px; font-weight: 800; padding: 1px 8px; border-radius: 99px; background: var(--surface); }
+.rc.danger .tag { color: var(--bad); }
+.rc.warning .tag { color: var(--warn); }
+.rc.success .tag { color: var(--good); }
+.rc.info .tag { color: var(--accent); }
+
+.notice { background: var(--warn-bg); color: var(--ink); border: 1px solid var(--warn); border-radius: 10px; padding: 16px; }
+.notice b { color: var(--warn); }
+.fallback textarea { width: 100%; min-height: 160px; margin-top: 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); font: inherit; font-size: 13px; padding: 10px; }
+.foot .gut { padding-block: 8px 32px; color: var(--muted); font-size: 12.5px; }
+.foot p + p { margin-top: 6px; }
+.toast {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; text-align: center; pointer-events: none;
+  padding: 0 16px calc(16px + env(safe-area-inset-bottom, 0px));
+}
+.toast span { display: inline-block; background: var(--ink); color: var(--bg); padding: 9px 16px; border-radius: 8px; font-weight: 600; font-size: 14px; }
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; transition: none !important; } }
+</style>
+</head>
+<body>
+
+
+<div id="app" lang="ar" dir="rtl">
+
+  <div class="bar" id="bar" role="status" aria-live="polite">
+    <div class="gut"><div class="in bar-row" id="bar-row"></div></div>
+  </div>
+
+  <header class="head">
+    <div class="gut"><div class="in">
+      <h1><bdi dir="ltr">AdsAnalytics &amp; Profit Simulator</bdi></h1>
+      <p>احسب نقطة التعادل والربح المتوقع لحملتك الإعلانية في ثلاث حالات، قبل أن تصرف أي ميزانية.</p>
+      <p class="sample">الأرقام الحالية مثال لمنتج واحد. بدّلها ببيانات منتجك وستتحدث النتائج فوراً.</p>
+    </div></div>
+  </header>
+
+  <main class="gut"><div class="in layout">
+
+    <form class="inputs card" id="form" novalidate aria-label="مدخلات المحاكاة"></form>
+
+    <div id="results">
+      <div class="notice" id="notice" role="alert" hidden>
+        <p><b>أكمل الحقول المطلوبة لعرض النتائج.</b></p>
+        <p>صحّح الحقول المعلَّمة بالأحمر وستظهر المحاكاة مباشرة.</p>
+      </div>
+      <div class="stack" id="out">
+        <section class="sec" aria-labelledby="h-sum">
+          <h2 id="h-sum">ملخص السيناريو الواقعي</h2>
+          <div class="kpis" id="kpis"></div>
+          <div class="be" id="be"></div>
+        </section>
+        <section class="sec" aria-labelledby="h-tbl">
+          <h2 id="h-tbl">مقارنة السيناريوهات</h2>
+          <div class="scroll"><table id="tbl"></table></div>
+        </section>
+        <section class="sec" aria-labelledby="h-ch">
+          <h2 id="h-ch">الرسوم البيانية</h2>
+          <div class="charts">
+            <div class="card chart"><h3>صافي الربح لكل سيناريو</h3><div class="plot" id="ch-profit" dir="ltr"></div></div>
+            <div class="card chart"><h3>ROAS مقابل نقطة التعادل</h3><div class="plot" id="ch-roas" dir="ltr"></div><div class="legend" id="lg-roas"></div></div>
+            <div class="card chart wide"><h3>الإنفاق والإيراد والربح</h3><div class="plot" id="ch-money" dir="ltr"></div>
+              <div class="legend">
+                <span class="key"><i style="background:var(--warn)"></i>الإنفاق</span>
+                <span class="key"><i style="background:var(--accent)"></i>الإيراد</span>
+                <span class="key"><i style="background:var(--good)"></i>صافي الربح</span>
+              </div>
+            </div>
+          </div>
+        </section>
+        <section class="sec" aria-labelledby="h-rc">
+          <h2 id="h-rc">التوصيات الذكية</h2>
+          <div class="reco" id="reco"></div>
+        </section>
+      </div>
+      <div class="card fallback" id="fallback" hidden>
+        <b>انسخ التقرير يدوياً</b>
+        <textarea id="fb-text" readonly></textarea>
+      </div>
+    </div>
+
+  </div></main>
+
+  <footer class="foot">
+    <div class="gut"><div class="in">
+      <p>النتائج تقديرية ومبنية على المدخلات أعلاه، ولا تضمن الأداء الفعلي. ROAS محسوب على إيراد الطلبات المسجّلة، أما صافي الربح فيحتسب المرتجعات.</p>
+      <p>لإضافة الصفحة إلى هاتفك: افتحها في Chrome ثم اختر ⋮ ثم «إضافة إلى الشاشة الرئيسية».</p>
+    </div></div>
+  </footer>
+
+  <div class="toast" id="toast" hidden><span id="toast-msg"></span></div>
+</div>
+
+<script id="engine">
+/* ===== محرك المحاكاة: دوال نقية بلا DOM (النسب تُمرَّر كأرقام: 2.5 = 2.5%) ===== */
+const SCENARIOS = [
+  { key: 'realistic', label: 'الواقعي', cvrMult: 1, cpcMult: 1, note: 'المدخلات كما هي' },
+  { key: 'best', label: 'المتفائل', cvrMult: 1.25, cpcMult: 0.85, note: 'CVR +25% و CPC −15%' },
+  { key: 'worst', label: 'التشاؤمي', cvrMult: 0.75, cpcMult: 1.15, note: 'CVR −25% و CPC +15%' },
+];
+
+const DEFAULT_FORM = {
+  price: '49', cogs: '15', shipping: '6', returnRate: '0',
+  dailyBudget: '50', days: '7', costMode: 'cpc',
+  cpc: '0.5', cpm: '8', ctr: '1.5', cvr: '2.5',
+};
+
+const parseNum = (v) => (v === '' || v === null || v === undefined ? NaN : Number(v));
+
+function toNumbers(form) {
+  return {
+    price: parseNum(form.price), cogs: parseNum(form.cogs), shipping: parseNum(form.shipping),
+    returnRate: parseNum(form.returnRate), dailyBudget: parseNum(form.dailyBudget), days: parseNum(form.days),
+    costMode: form.costMode, cpc: parseNum(form.cpc), cpm: parseNum(form.cpm), ctr: parseNum(form.ctr), cvr: parseNum(form.cvr),
+  };
+}
+
+function validateInputs(n) {
+  const e = {};
+  const need = (k, ok, msg) => {
+    if (Number.isNaN(n[k])) e[k] = 'هذا الحقل مطلوب';
+    else if (!ok(n[k])) e[k] = msg;
+  };
+  need('price', (v) => v > 0, 'يجب أن يكون السعر أكبر من صفر');
+  need('cogs', (v) => v >= 0, 'لا يمكن أن تكون القيمة سالبة');
+  need('shipping', (v) => v >= 0, 'لا يمكن أن تكون القيمة سالبة');
+  need('returnRate', (v) => v >= 0 && v <= 95, 'أدخل نسبة بين 0 و 95');
+  need('dailyBudget', (v) => v > 0, 'يجب أن تكون الميزانية أكبر من صفر');
+  need('days', (v) => v >= 1 && Number.isInteger(v), 'أدخل عدد أيام صحيحاً (1 أو أكثر)');
+  need('cvr', (v) => v > 0 && v <= 100, 'أدخل نسبة بين 0 و 100');
+  if (n.costMode === 'cpc') {
+    need('cpc', (v) => v > 0, 'يجب أن يكون CPC أكبر من صفر');
+  } else {
+    need('cpm', (v) => v > 0, 'يجب أن يكون CPM أكبر من صفر');
+    need('ctr', (v) => v > 0 && v <= 100, 'أدخل نسبة بين 0 و 100');
+  }
+  return e;
+}
+
+// CPC مباشر، أو مشتق من CPM و CTR: CPC = CPM ÷ (10 × CTR)
+function resolveBaseCpc(n) {
+  return n.costMode === 'cpc' ? n.cpc : n.cpm / (10 * n.ctr);
+}
+
+// الهامش الفعلي لكل طلب بعد المرتجعات: المسلَّم يربح (السعر−البضاعة−الشحن)، والمرتجع يكلّف الشحن فقط
+function effectiveMargin(n) {
+  const r = n.returnRate / 100;
+  return (1 - r) * (n.price - n.cogs - n.shipping) - r * n.shipping;
+}
+
+function runScenario(n, sc) {
+  const cpc = resolveBaseCpc(n) * sc.cpcMult;
+  const cvr = Math.min(n.cvr * sc.cvrMult, 100);
+  const spend = n.dailyBudget * n.days;
+  const visitors = spend / cpc;
+  const orders = (visitors * cvr) / 100;
+  const margin = effectiveMargin(n);
+  const revenue = orders * n.price;
+  const netProfit = orders * margin - spend;
+  return {
+    key: sc.key, label: sc.label, note: sc.note, cpc, cvr, spend, visitors, orders, revenue,
+    cpa: orders > 0 ? spend / orders : Infinity,
+    roas: spend > 0 ? revenue / spend : 0,
+    netProfit,
+    roi: spend > 0 ? (netProfit / spend) * 100 : 0,
+    dailyProfit: netProfit / n.days,
+  };
+}
+
+function breakEven(n) {
+  const margin = effectiveMargin(n);
+  const baseCpc = resolveBaseCpc(n);
+  const ok = margin > 0;
+  return {
+    margin,
+    cpa: ok ? margin : 0,
+    roas: ok ? n.price / margin : Infinity,
+    cvr: ok ? Math.min((baseCpc / margin) * 100, 100) : Infinity,
+    cpc: ok ? (margin * n.cvr) / 100 : 0,
+  };
+}
+
+function simulateAll(n) {
+  return { scenarios: SCENARIOS.map((s) => runScenario(n, s)), breakEven: breakEven(n) };
+}
+
+function buildRecommendations(n, sim) {
+  const [real, , worst] = sim.scenarios;
+  const be = sim.breakEven;
+  const out = [];
+
+  if (be.margin <= 0) {
+    out.push({ level: 'danger', title: 'هامش الربح للمنتج سالب',
+      text: 'تكاليف المنتج والشحن (مع المرتجعات) تساوي سعر البيع أو تتجاوزه، لذا لن يحقق أي إعلان ربحاً. ارفع سعر البيع أو خفّض تكلفة الشراء والشحن قبل إنفاق أي ميزانية.' });
+    return out;
+  }
+
+  if (real.netProfit < 0) {
+    const r = n.returnRate / 100;
+    const requiredPrice = r < 1 ? (real.cpa + r * n.shipping) / (1 - r) + n.cogs + n.shipping : Infinity;
+    const priceTxt = Number.isFinite(requiredPrice) ? `$${requiredPrice.toFixed(2)}` : 'غير محدد';
+    out.push({ level: 'danger', title: 'ROAS أقل من نقطة التعادل: الحملة خاسرة',
+      text: `العائد الفعلي ${real.roas.toFixed(2)}x مقابل ${be.roas.toFixed(2)}x مطلوب للتعادل. للوصول إلى التعادل: ارفع السعر إلى نحو ${priceTxt}، أو حسّن صفحة الهبوط لرفع CVR إلى ${Number.isFinite(be.cvr) ? be.cvr.toFixed(2) : '—'}% على الأقل، أو اخفض CPC إلى $${be.cpc.toFixed(2)} أو أقل.` });
+  } else {
+    out.push({ level: 'success', title: 'السيناريو الواقعي مربح',
+      text: `صافي الربح المتوقع $${real.netProfit.toFixed(2)} بعائد ROAS يبلغ ${real.roas.toFixed(2)}x مقابل ${be.roas.toFixed(2)}x للتعادل.` });
+    if (real.roas < be.roas * 1.2) {
+      out.push({ level: 'warning', title: 'هامش الأمان ضيق',
+        text: 'ROAS الواقعي أعلى من التعادل بأقل من 20%. أي ارتفاع بسيط في تكلفة النقرة أو انخفاض في التحويل قد يحوّل الحملة إلى خسارة.' });
+    }
+  }
+
+  if (real.netProfit >= 0 && worst.netProfit < 0) {
+    out.push({ level: 'warning', title: 'الحملة معرّضة للخسارة في السيناريو التشاؤمي',
+      text: `في أسوأ الحالات تخسر نحو $${Math.abs(worst.netProfit).toFixed(2)}. ابدأ باختبار بميزانية صغيرة وراقب CVR و CPC يومياً قبل التوسع.` });
+  }
+  if (worst.netProfit >= 0) {
+    out.push({ level: 'success', title: 'مقاومة جيدة للتقلبات',
+      text: 'الحملة تبقى مربحة حتى في السيناريو التشاؤمي. يمكنك زيادة الميزانية تدريجياً (نحو 20% كل 3 أيام) مع متابعة CPA.' });
+  }
+  if (n.returnRate >= 20) {
+    out.push({ level: 'warning', title: 'نسبة المرتجعات مرتفعة',
+      text: 'نسبة رفض الاستلام تلتهم جزءاً كبيراً من الربح. جرّب تأكيد الطلبات هاتفياً أو أضف دفعة مقدمة لتقليلها.' });
+  }
+  if (n.cvr < 1) {
+    out.push({ level: 'info', title: 'معدل التحويل منخفض',
+      text: 'CVR أقل من 1%. حسّن صفحة الهبوط (سرعة التحميل، الصور، العروض، وإثبات الثقة) واختبر عدة نسخ منها.' });
+  }
+  if (real.netProfit >= 0 && real.cpa > be.cpa * 0.8) {
+    out.push({ level: 'info', title: 'تكلفة الطلب قريبة من الحد الأقصى',
+      text: `CPA المتوقع $${real.cpa.toFixed(2)} مقابل حد أقصى $${be.cpa.toFixed(2)}. حاول تحسين الاستهداف أو الإبداعات الإعلانية لخفضه.` });
+  }
+  return out;
+}
+</script>
+
+<script id="ui">
+(function () {
+  'use strict';
+
+  /* ---------- أدوات التنسيق ---------- */
+  const nf = (a, b) => new Intl.NumberFormat('en-US', { minimumFractionDigits: a, maximumFractionDigits: b });
+  const f2 = nf(2, 2), f0 = nf(0, 0), f1 = nf(1, 1);
+  const money = (v, signed) => {
+    if (!Number.isFinite(v)) return '∞';
+    const s = v < 0 ? '-' : (signed && v > 0 ? '+' : '');
+    return s + '$' + f2.format(Math.abs(v));
+  };
+  const roasF = (v) => (Number.isFinite(v) ? f2.format(v) + 'x' : '∞');
+  const pct = (v, d) => (Number.isFinite(v) ? v.toFixed(d == null ? 1 : d) + '%' : '—');
+  const N = (s) => '<bdi dir="ltr" class="num">' + s + '</bdi>';
+  const $ = (s) => document.querySelector(s);
+
+  /* ---------- الحقول ---------- */
+  const FIELDS = {
+    price: { label: 'سعر البيع', unit: '$' },
+    cogs: { label: 'تكلفة الشراء / البضاعة', unit: '$' },
+    shipping: { label: 'تكلفة الشحن والتحصيل', unit: '$' },
+    returnRate: { label: 'نسبة المرتجعات / رفض الاستلام', unit: '%', hint: 'اختياري. المرتجع يكلّفك الشحن فقط ولا يحقق ربحاً.' },
+    dailyBudget: { label: 'الميزانية اليومية', unit: '$' },
+    days: { label: 'مدة الحملة', unit: 'يوم', step: '1' },
+    cpc: { label: 'تكلفة النقرة (CPC)', unit: '$' },
+    cpm: { label: 'سعر الألف ظهور (CPM)', unit: '$' },
+    ctr: { label: 'نسبة النقر (CTR)', unit: '%', hint: 'يُحسب CPC تلقائياً: CPM ÷ (10 × CTR)' },
+    cvr: { label: 'معدل التحويل (CVR)', unit: '%', hint: 'نسبة زوار صفحة الهبوط الذين يشترون.' },
+  };
+  const field = (id) => {
+    const f = FIELDS[id];
+    return '<div class="field" id="w-' + id + '">' +
+      '<label for="f-' + id + '">' + f.label + '</label>' +
+      '<div class="ctl"><input id="f-' + id + '" data-k="' + id + '" type="number" inputmode="decimal" step="' + (f.step || 'any') + '" min="0">' +
+      '<span class="u">' + f.unit + '</span></div>' +
+      '<div class="err" id="e-' + id + '"></div>' +
+      (f.hint ? '<div class="hint">' + f.hint + '</div>' : '') + '</div>';
+  };
+
+  /* ---------- الحالة (مع تذكّر آخر مدخلات على نفس المتصفح) ---------- */
+  const KEY = 'ads-sim-v1';
+  let form = Object.assign({}, DEFAULT_FORM);
+  try {
+    const raw = localStorage.getItem(KEY);
+    if (raw) {
+      const saved = JSON.parse(raw);
+      Object.keys(DEFAULT_FORM).forEach((k) => { if (typeof saved[k] === 'string') form[k] = saved[k]; });
+    }
+  } catch (e) { /* التخزين غير متاح: نكمل بالقيم الافتراضية */ }
+  const save = () => { try { localStorage.setItem(KEY, JSON.stringify(form)); } catch (e) {} };
+
+  /* ---------- بناء النموذج ---------- */
+  $('#form').innerHTML =
+    '<fieldset><legend>بيانات المنتج</legend>' + ['price', 'cogs', 'shipping', 'returnRate'].map(field).join('') + '</fieldset>' +
+    '<fieldset><legend>بيانات الإعلان</legend>' +
+    ['dailyBudget', 'days'].map(field).join('') +
+    '<div class="field"><span class="lbl" id="mode-l">طريقة إدخال تكلفة الزيارة</span>' +
+    '<div class="seg" role="group" aria-labelledby="mode-l">' +
+    '<button type="button" data-mode="cpc">CPC مباشر</button><button type="button" data-mode="cpm">CPM + CTR</button></div></div>' +
+    '<div id="g-cpc" style="display:grid;gap:14px">' + field('cpc') + '</div>' +
+    '<div id="g-cpm" style="display:grid;gap:14px">' + field('cpm') + field('ctr') + '</div>' +
+    field('cvr') + '</fieldset>' +
+    '<div class="actions">' +
+    '<button type="button" class="btn primary" id="btn-copy">نسخ التقرير</button>' +
+    '<button type="button" class="btn" id="btn-reset">استعادة القيم الافتراضية</button></div>';
+
+  const syncInputs = () => {
+    Object.keys(FIELDS).forEach((k) => { $('#f-' + k).value = form[k]; });
+    $('#g-cpc').hidden = form.costMode !== 'cpc';
+    $('#g-cpm').hidden = form.costMode !== 'cpm';
+    document.querySelectorAll('.seg button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.mode === form.costMode)));
+  };
+
+  /* ---------- الرسوم: أعمدة SVG مرسومة بمقياس واحد ---------- */
+  const SVGNS = 'http://www.w3.org/2000/svg';
+  const niceStep = (range, target) => {
+    const raw = range / target, p = Math.pow(10, Math.floor(Math.log10(raw))), f = raw / p;
+    return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 5 ? 5 : 10) * p;
+  };
+  const compact = (v) => {
+    const a = Math.abs(v), s = v < 0 ? '-' : '';
+    if (a >= 1000) return s + '$' + Number((a / 1000).toFixed(1)) + 'k';
+    return s + '$' + Number(a.toFixed(a < 10 ? 1 : 0));
+  };
+  const el = (name, attrs, text) => {
+    const e = document.createElementNS(SVGNS, name);
+    Object.keys(attrs).forEach((k) => e.setAttribute(k, attrs[k]));
+    if (text != null) e.textContent = text;
+    return e;
+  };
+
+  function drawBars(host, o) {
+    const W = Math.max(280, host.clientWidth || 340), H = 230;
+    const m = { t: 22, r: 8, b: 30, l: 46 };
+    const vals = [];
+    o.groups.forEach((g) => g.bars.forEach((b) => vals.push(b.v)));
+    if (o.ref != null && Number.isFinite(o.ref)) vals.push(o.ref);
+    let lo = Math.min(0, ...vals), hi = Math.max(0, ...vals);
+    if (hi === lo) hi = 1;
+    const step = niceStep(hi - lo, 4);
+    const tMin = Math.floor(lo / step) * step, tMax = Math.ceil(hi / step) * step;
+    const pw = W - m.l - m.r, ph = H - m.t - m.b;
+    const y = (v) => m.t + ((tMax - v) / (tMax - tMin)) * ph;
+
+    const svg = el('svg', { viewBox: '0 0 ' + W + ' ' + H, role: 'img', 'aria-label': o.aria });
+    const nTicks = Math.round((tMax - tMin) / step);
+    for (let i = 0; i <= nTicks; i++) {
+      const t = tMin + i * step;
+      svg.appendChild(el('line', { x1: m.l, x2: W - m.r, y1: y(t), y2: y(t), style: 'stroke:var(--line)', 'stroke-width': 1 }));
+      svg.appendChild(el('text', { x: m.l - 6, y: y(t) + 4, 'text-anchor': 'end', 'font-size': 11, style: 'fill:var(--muted)' }, o.tick(t)));
+    }
+    svg.appendChild(el('line', { x1: m.l, x2: W - m.r, y1: y(0), y2: y(0), style: 'stroke:var(--ink)', 'stroke-width': 1.2 }));
+
+    const gw = pw / o.groups.length;
+    o.groups.forEach((g, i) => {
+      const nb = g.bars.length, gap = 4;
+      const bw = Math.min(54, (gw * 0.7 - (nb - 1) * gap) / nb);
+      const x0 = m.l + i * gw + (gw - (nb * bw + (nb - 1) * gap)) / 2;
+      g.bars.forEach((b, j) => {
+        const x = x0 + j * (bw + gap), yv = y(b.v), y0 = y(0);
+        const rect = el('rect', { x, y: Math.min(yv, y0), width: bw, height: Math.max(1, Math.abs(yv - y0)), rx: 3, style: 'fill:' + b.color });
+        rect.appendChild(el('title', {}, (b.name ? b.name + ': ' : '') + o.full(b.v)));
+        svg.appendChild(rect);
+        if (!o.noLabels) {
+          svg.appendChild(el('text', { x: x + bw / 2, y: b.v >= 0 ? yv - 5 : yv + 14, 'text-anchor': 'middle', 'font-size': 12, 'font-weight': 700, style: 'fill:var(--ink)' }, o.lab(b.v)));
+        }
+      });
+      svg.appendChild(el('text', { x: m.l + i * gw + gw / 2, y: H - 9, 'text-anchor': 'middle', 'font-size': 12.5, style: 'fill:var(--muted)' }, g.label));
+    });
+
+    if (o.ref != null && Number.isFinite(o.ref)) {
+      svg.appendChild(el('line', { x1: m.l, x2: W - m.r, y1: y(o.ref), y2: y(o.ref), style: 'stroke:var(--ink)', 'stroke-width': 1.6, 'stroke-dasharray': '6 4' }));
+    }
+    host.replaceChildren(svg);
+  }
+
+  const COLOR = { realistic: 'var(--accent)', best: 'var(--good)', worst: 'var(--bad)' };
+  let lastSim = null;
+
+  function renderCharts() {
+    if (!lastSim) return;
+    const sc = lastSim.scenarios, be = lastSim.breakEven;
+    drawBars($('#ch-profit'), {
+      aria: 'صافي الربح في السيناريوهات الثلاثة',
+      groups: sc.map((s) => ({ label: s.label, bars: [{ v: s.netProfit, color: COLOR[s.key], name: s.label }] })),
+      tick: compact, lab: (v) => compact(v), full: (v) => money(v),
+    });
+    drawBars($('#ch-roas'), {
+      aria: 'ROAS في السيناريوهات الثلاثة مقابل نقطة التعادل',
+      groups: sc.map((s) => ({ label: s.label, bars: [{ v: s.roas, color: COLOR[s.key], name: s.label }] })),
+      ref: be.roas,
+      tick: (t) => Number(t.toFixed(2)) + 'x', lab: (v) => v.toFixed(2) + 'x', full: roasF,
+    });
+    drawBars($('#ch-money'), {
+      aria: 'الإنفاق والإيراد وصافي الربح في السيناريوهات الثلاثة',
+      groups: sc.map((s) => ({ label: s.label, bars: [
+        { v: s.spend, color: 'var(--warn)', name: 'الإنفاق' },
+        { v: s.revenue, color: 'var(--accent)', name: 'الإيراد' },
+        { v: s.netProfit, color: 'var(--good)', name: 'صافي الربح' },
+      ] })),
+      noLabels: true, tick: compact, lab: compact, full: (v) => money(v),
+    });
+    $('#lg-roas').innerHTML = Number.isFinite(be.roas)
+      ? '<span class="key"><i class="dash"></i>نقطة التعادل ' + N(roasF(be.roas)) + '</span>'
+      : '<span class="key">لا توجد نقطة تعادل: الهامش سالب</span>';
+  }
+
+  /* ---------- عرض النتائج ---------- */
+  const TAGS = { danger: 'خطر', warning: 'تنبيه', success: 'جيد', info: 'ملاحظة' };
+
+  function renderBar(sim, n) {
+    const r = sim.scenarios[0], be = sim.breakEven, good = r.netProfit >= 0;
+    $('#bar-row').innerHTML =
+      '<div class="bar-main"><span class="pill ' + (good ? 'good' : 'bad') + '">' + (good ? 'حملة مربحة' : 'حملة خاسرة') + '</span>' +
+      '<span class="bar-profit ' + (good ? 't-good' : 't-bad') + '">' + N(money(r.netProfit, true)) + '</span>' +
+      '<span class="bar-label">صافي ربح ' + n.days + ' يوم</span></div>' +
+      '<div class="bar-side">ROAS <b>' + N(roasF(r.roas)) + '</b><br>التعادل <b>' + N(roasF(be.roas)) + '</b></div>';
+  }
+
+  function renderResults(sim, n) {
+    const r = sim.scenarios[0], be = sim.breakEven, good = r.netProfit >= 0;
+    const kpi = (cls, k, v, s) => '<div class="kpi ' + cls + '"><div class="k">' + k + '</div><div class="v">' + N(v) + '</div><div class="s">' + s + '</div></div>';
+    $('#kpis').innerHTML =
+      kpi(good ? 'good' : 'bad', 'صافي الربح', money(r.netProfit, true), 'ROI ' + N(pct(r.roi))) +
+      kpi(r.roas >= be.roas ? 'good' : 'bad', 'العائد على الإنفاق (ROAS)', roasF(r.roas), (r.roas >= be.roas ? 'فوق التعادل ' : 'تحت التعادل ') + N(roasF(be.roas))) +
+      kpi(r.cpa <= be.cpa ? 'good' : 'bad', 'التكلفة لكل طلب (CPA)', money(r.cpa), (r.cpa <= be.cpa ? 'ضمن الحد ' : 'فوق الحد ') + N(money(be.cpa))) +
+      kpi('', 'الطلبات المتوقعة', f1.format(r.orders), N(f1.format(r.orders / n.days)) + ' طلب يومياً') +
+      kpi('', 'الزوار المتوقعون', f0.format(Math.round(r.visitors)), 'تكلفة النقرة ' + N(money(r.cpc))) +
+      kpi('', 'إجمالي الإنفاق', money(r.spend), 'إيراد متوقع ' + N(money(r.revenue)));
+
+    $('#be').innerHTML =
+      '<h3>نقطة التعادل</h3><dl>' +
+      '<div><dt>ROAS التعادل</dt><dd>' + N(roasF(be.roas)) + '</dd></div>' +
+      '<div><dt>أقصى CPA مقبول</dt><dd>' + N(money(be.cpa)) + '</dd></div>' +
+      '<div><dt>أقل CVR للتعادل</dt><dd>' + N(pct(be.cvr, 2)) + '</dd></div>' +
+      '<div><dt>أقصى CPC مقبول</dt><dd>' + N(money(be.cpc)) + '</dd></div></dl>' +
+      '<p>الهامش الصافي لكل طلب بعد التكاليف والمرتجعات: ' + N(money(be.margin)) + '</p>';
+
+    const sc = sim.scenarios;
+    const rows = [
+      ['تكلفة النقرة (CPC)', (s) => money(s.cpc)],
+      ['معدل التحويل (CVR)', (s) => pct(s.cvr, 2)],
+      ['إجمالي الإنفاق', (s) => money(s.spend)],
+      ['الزوار', (s) => f0.format(Math.round(s.visitors))],
+      ['الطلبات', (s) => f1.format(s.orders)],
+      ['التكلفة لكل طلب (CPA)', (s) => money(s.cpa)],
+      ['الإيراد', (s) => money(s.revenue)],
+      ['ROAS', (s) => roasF(s.roas)],
+      ['العائد على الاستثمار (ROI)', (s) => pct(s.roi)],
+    ];
+    const profitRows = [['صافي الربح', (s) => s.netProfit], ['صافي الربح اليومي', (s) => s.dailyProfit]];
+    let html = '<thead><tr><th scope="col">المؤشر</th>' +
+      sc.map((s) => '<th scope="col" style="color:' + COLOR[s.key] + '">' + s.label + '<small>' + s.note + '</small></th>').join('') + '</tr></thead><tbody>';
+    rows.forEach((row) => {
+      html += '<tr><th scope="row">' + row[0] + '</th>' + sc.map((s) => '<td>' + N(row[1](s)) + '</td>').join('') + '</tr>';
+    });
+    profitRows.forEach((row) => {
+      html += '<tr class="profit"><th scope="row">' + row[0] + '</th>' +
+        sc.map((s) => { const v = row[1](s); return '<td class="' + (v >= 0 ? 't-good' : 't-bad') + '">' + N(money(v, true)) + '</td>'; }).join('') + '</tr>';
+    });
+    $('#tbl').innerHTML = html + '</tbody>';
+
+    $('#reco').innerHTML = buildRecommendations(n, sim).map((x) =>
+      '<div class="rc ' + x.level + '"><div class="top"><span class="tag">' + TAGS[x.level] + '</span><b>' + x.title + '</b></div><p>' + x.text + '</p></div>'
+    ).join('');
+  }
+
+  function update() {
+    const n = toNumbers(form), errs = validateInputs(n);
+    Object.keys(FIELDS).forEach((k) => {
+      const bad = errs[k];
+      $('#w-' + k).classList.toggle('bad', !!bad);
+      $('#e-' + k).textContent = bad || '';
+      $('#f-' + k).setAttribute('aria-invalid', String(!!bad));
+    });
+    const has = Object.keys(errs).length > 0;
+    $('#notice').hidden = !has;
+    $('#out').hidden = has;
+    if (has) {
+      lastSim = null;
+      $('#bar-row').innerHTML = '<div class="bar-main"><span class="pill warn">أكمل الحقول المطلوبة</span></div>';
+      return;
+    }
+    const sim = simulateAll(n);
+    lastSim = sim;
+    renderBar(sim, n);
+    renderResults(sim, n);
+    renderCharts();
+  }
+
+  /* ---------- نسخ التقرير ---------- */
+  function reportText() {
+    const n = toNumbers(form);
+    if (!lastSim) return '';
+    const be = lastSim.breakEven, L = [];
+    L.push('AdsAnalytics - تقرير المحاكاة');
+    L.push('');
+    L.push('المدخلات: سعر البيع ' + money(n.price) + ' | البضاعة ' + money(n.cogs) + ' | الشحن ' + money(n.shipping) + ' | مرتجعات ' + n.returnRate + '%');
+    L.push('الإعلان: ' + money(n.dailyBudget) + ' يومياً × ' + n.days + ' يوم | ' +
+      (n.costMode === 'cpc' ? 'CPC ' + money(n.cpc) : 'CPM ' + money(n.cpm) + ' و CTR ' + n.ctr + '%') + ' | CVR ' + n.cvr + '%');
+    L.push('');
+    L.push('نقطة التعادل: ROAS ' + roasF(be.roas) + ' | أقصى CPA ' + money(be.cpa) + ' | أقل CVR ' + pct(be.cvr, 2) + ' | أقصى CPC ' + money(be.cpc));
+    L.push('');
+    lastSim.scenarios.forEach((s) => {
+      L.push(s.label + ': طلبات ' + f1.format(s.orders) + ' | CPA ' + money(s.cpa) + ' | ROAS ' + roasF(s.roas) + ' | صافي الربح ' + money(s.netProfit, true));
+    });
+    L.push('');
+    buildRecommendations(n, lastSim).forEach((x) => L.push('- ' + x.title + ': ' + x.text));
+    return L.join('\n');
+  }
+
+  let toastTimer;
+  function toast(msg) {
+    $('#toast-msg').textContent = msg;
+    $('#toast').hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { $('#toast').hidden = true; }, 2200);
+  }
+  function showFallback(text) {
+    const box = $('#fallback'), ta = $('#fb-text');
+    ta.value = text;
+    box.hidden = false;
+    ta.focus();
+    ta.select();
+    box.scrollIntoView({ block: 'center' });
+  }
+  async function copyReport() {
+    const text = reportText();
+    if (!text) { toast('أكمل الحقول المطلوبة أولاً'); return; }
+    try {
+      await navigator.clipboard.writeText(text);
+      $('#fallback').hidden = true;
+      toast('تم نسخ التقرير');
+    } catch (e) {
+      showFallback(text);
+    }
+  }
+
+  /* ---------- الأحداث ---------- */
+  $('#form').addEventListener('input', (e) => {
+    const k = e.target && e.target.dataset && e.target.dataset.k;
+    if (!k) return;
+    form[k] = e.target.value;
+    save();
+    update();
+  });
+  $('#form').addEventListener('submit', (e) => e.preventDefault());
+  $('#form').addEventListener('click', (e) => {
+    const mode = e.target.closest && e.target.closest('[data-mode]');
+    if (mode) { form.costMode = mode.dataset.mode; save(); syncInputs(); update(); return; }
+    if (e.target.closest('#btn-copy')) copyReport();
+    if (e.target.closest('#btn-reset')) { form = Object.assign({}, DEFAULT_FORM); save(); syncInputs(); update(); toast('تمت استعادة القيم الافتراضية'); }
+  });
+  let rz;
+  window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(renderCharts, 120); });
+
+  syncInputs();
+  update();
+})();
+</script>
+
+
+
+</body>
+</html>

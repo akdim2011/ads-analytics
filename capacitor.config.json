@@ -1,0 +1,8 @@
+{
+  "appId": "app.adsanalytics.profitsim",
+  "appName": "AdsAnalytics",
+  "webDir": "www",
+  "android": {
+    "backgroundColor": "#F1F4F3"
+  }
+}
